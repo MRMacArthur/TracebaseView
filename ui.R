@@ -39,7 +39,7 @@ fluidPage(
     ),
     mainPanel(
       verbatimTextOutput("getHeader"),
-      plotOutput("plot1", height = 600)
+      uiOutput("plot1")
     )
   )
 )
