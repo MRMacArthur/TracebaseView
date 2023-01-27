@@ -7,8 +7,7 @@ library(ggplot2)
 
 options(shiny.maxRequestSize = 60 * 1024 ^ 2)
 
-summaryColNames <-
-  c(
+summaryColNames <- c(
     "Sample",
     "Tissue",
     "Peak Group",
@@ -101,6 +100,7 @@ function(input, output, session) {
       lapply(dataIn[colnames(dataIn) %in% summaryColNames], factor)
     dataIn[colnames(dataIn) %in% numericColNames] <-
       lapply(dataIn[colnames(dataIn) %in% numericColNames], as.numeric)
+    dataIn$Infusate <- make.names(dataIn$Infusate)
     return(dataIn)
   })
   
@@ -120,35 +120,62 @@ function(input, output, session) {
       rename(UniqueValues = V1)
   }, rownames = T)
   
-  observeEvent(input$renderPlot1, {
-    output$plot1 <- renderPlot(if (input$check_facet1 == F) {
-      getData() %>%
-        ggplot(aes_string(
-          x = as.name(input$plot1_x),
-          y = as.name(input$plot1_y)
-        )) +
-        geom_boxplot()
-    } else{
-      if (input$scales_plot1 == F) {
-        getData() %>%
-          ggplot(aes_string(
-            x = as.name(input$plot1_x),
-            y = as.name(input$plot1_y)
-          )) +
-          facet_wrap( ~ get(input$plot1_facet1)) +
-          geom_boxplot()
-      } else{
-        getData() %>%
-          ggplot(aes_string(
-            x = as.name(input$plot1_x),
-            y = as.name(input$plot1_y)
-          )) +
-          facet_wrap( ~ get(input$plot1_facet1),
-                      scales = "free") +
-          geom_boxplot()
-      }
-    })
+  # plot1 output generates plots for isotope enrichment-based parameters from 
+  # the Peak Groups output data type. Mainly intended for "Total Abundance",
+  # "Enrichment Fraction", "Enrichment Abundance" or "Normalized Labeling"
+  # values. The user dictates the x and y axis parameters via dropdown
+  # user inputs. User can also optionally provide a faceting parameter
+  # and allow for free y axis scales between facets via checkbox inputs.
+  # One plot per infusate is automatically generated.
+  
+  output$plot1 <- renderUI({
+    plotOutputList <- lapply(make.names(unique(getData()$Infusate)),
+                             function(i){
+                               plotname <- paste("Plot", i, sep = "_")
+                               plotOutput(plotname, height = 600)
+                             })
+    do.call(tagList, plotOutputList)
   })
+  
+  observeEvent(input$renderPlot1, {
+    for (i in make.names(unique(getData()$Infusate))) {
+      local({
+        iCurrent <- i
+        plotname <- paste("Plot", iCurrent, sep = "_")
+        
+        output[[plotname]] <- renderPlot({
+          if (input$check_facet1 == F) {
+            getData() %>%
+              filter(Infusate == iCurrent) %>%
+              ggplot(aes_string(x = as.name(input$plot1_x), 
+                                y = as.name(input$plot1_y))) +
+              geom_boxplot() + ggtitle(paste(iCurrent))
+          } else{
+            if (input$scales_plot1 == F) {
+              getData() %>%
+                filter(Infusate == iCurrent) %>%
+                ggplot(aes_string(x = as.name(input$plot1_x), 
+                                  y = as.name(input$plot1_y))) +
+                geom_boxplot() + ggtitle(paste(iCurrent)) +
+                facet_wrap(input$plot1_facet1)
+            } else{
+              getData() %>%
+                filter(Infusate == iCurrent) %>%
+                ggplot(aes_string(x = as.name(input$plot1_x), 
+                                  y = as.name(input$plot1_y))) +
+                geom_boxplot() + ggtitle(paste(iCurrent)) +
+                facet_wrap(input$plot1_facet1, scale = "free")
+            }
+          }
+          
+        })
+      })
+    }
+  })
+  
+  # The 3 observe functions below react to user inputs which 
+  # dictate the variables to be plotted on the x axis, y axis
+  # and variable used for faceting in the plot1 (Peak Groups) output
   
   observe({
     updateSelectInput(session, "plot1_x",
