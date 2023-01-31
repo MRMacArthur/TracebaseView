@@ -96,12 +96,43 @@ function(input, output, session) {
     req(input$fileIn)
     dataIn <- as.data.frame(fread(input$fileIn$datapath))
     dataIn[dataIn == "None"] <- NA
+    if("Infusate" %in% colnames(dataIn)){
+      dataIn$Infusate <- make.names(dataIn$Infusate) 
+    }
     dataIn[colnames(dataIn) %in% summaryColNames] <-
-      lapply(dataIn[colnames(dataIn) %in% summaryColNames], factor)
+      lapply(dataIn[colnames(dataIn) %in% summaryColNames], as.character)
     dataIn[colnames(dataIn) %in% numericColNames] <-
       lapply(dataIn[colnames(dataIn) %in% numericColNames], as.numeric)
-    dataIn$Infusate <- make.names(dataIn$Infusate)
     return(dataIn)
+  })
+  
+  # Generate selectInput (pickerInput) elements for all character variables from
+  # the user data upload. These elements are used for the user to filter
+  # data and exclude levels of factor variables
+  
+  output$generateFilters <- renderUI({
+    lapply(names(Filter(is.character, getData())), function(i) {
+      filterLevels <- unique(getData()[, i])
+      shinyWidgets::pickerInput(
+        inputId = paste(i),
+        label = paste(i),
+        choices = filterLevels,
+        multiple = T,
+        options = list(`actions-box` = T),
+        selected = filterLevels
+      )
+    })
+  })
+  
+  # Reactive function which executes filtering based on user selection from the
+  # generateFilters elements
+  
+  filterFunction <- reactive({
+    purrr::reduce(names(Filter(is.character, getData())), function(.x, .y) {
+      filter(.x, .data[[ .y ]] %in% input[[.y]])  
+    },
+    .init = getData()
+    )
   })
   
   # dataSummary output generates a count table of the number of levels in each
@@ -110,15 +141,19 @@ function(input, output, session) {
   # has been loaded
   
   output$dataSummary <- renderTable({
-    getData() %>%
+    filterFunction() %>%
       select(any_of(summaryColNames)) %>%
-      map(levels) %>%
+      map(unique) %>%
       map(length) %>%
       do.call(what = cbind.data.frame, args = .)  %>%
       t() %>%
       as.data.frame() %>%
       rename(UniqueValues = V1)
   }, rownames = T)
+  
+  output$dataTableView <- renderTable({
+    filterFunction()
+  })
   
   # plot1 output generates plots for isotope enrichment-based parameters from 
   # the Peak Groups output data type. Mainly intended for "Total Abundance",
@@ -129,7 +164,7 @@ function(input, output, session) {
   # One plot per infusate is automatically generated.
   
   output$plot1 <- renderUI({
-    plotOutputList <- lapply(make.names(unique(getData()$Infusate)),
+    plotOutputList <- lapply(make.names(unique(filterFunction()$Infusate)),
                              function(i){
                                plotname <- paste("Plot", i, sep = "_")
                                plotOutput(plotname, height = 600)
@@ -138,28 +173,28 @@ function(input, output, session) {
   })
   
   observeEvent(input$renderPlot1, {
-    for (i in make.names(unique(getData()$Infusate))) {
+    for (i in make.names(unique(filterFunction()$Infusate))) {
       local({
         iCurrent <- i
         plotname <- paste("Plot", iCurrent, sep = "_")
         
         output[[plotname]] <- renderPlot({
           if (input$check_facet1 == F) {
-            getData() %>%
+            filterFunction() %>%
               filter(Infusate == iCurrent) %>%
               ggplot(aes_string(x = as.name(input$plot1_x), 
                                 y = as.name(input$plot1_y))) +
               geom_boxplot() + ggtitle(paste(iCurrent))
           } else{
             if (input$scales_plot1 == F) {
-              getData() %>%
+              filterFunction() %>%
                 filter(Infusate == iCurrent) %>%
                 ggplot(aes_string(x = as.name(input$plot1_x), 
                                   y = as.name(input$plot1_y))) +
                 geom_boxplot() + ggtitle(paste(iCurrent)) +
                 facet_wrap(input$plot1_facet1)
             } else{
-              getData() %>%
+              filterFunction() %>%
                 filter(Infusate == iCurrent) %>%
                 ggplot(aes_string(x = as.name(input$plot1_x), 
                                   y = as.name(input$plot1_y))) +
