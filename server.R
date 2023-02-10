@@ -4,6 +4,7 @@ library(dplyr)
 library(tidyr)
 library(purrr)
 library(ggplot2)
+library(shinydashboard)
 
 options(shiny.maxRequestSize = 60 * 1024 ^ 2)
 
@@ -87,7 +88,7 @@ function(input, output, session) {
     
   })
   
-  # Load data using reactive functio. This reactive function returns a dataframe
+  # Load data using reactive function. This reactive function returns a dataframe
   # of the input file. Functions that call getData() will receive the dataframe
   # and will only rerun fread() when the input field has been updated.
   # This function also recodes "None" to NA and reclasses variables
@@ -138,7 +139,7 @@ function(input, output, session) {
   # dataSummary output generates a count table of the number of levels in each
   # "factor" variable (all possible defined in "summaryColNames" variable).
   # This table is then rendered below the file input widget after a file
-  # has been loaded
+  # has been loaded and reacts to filtering
   
   output$dataSummary <- renderTable({
     filterFunction() %>%
@@ -152,7 +153,7 @@ function(input, output, session) {
   }, rownames = T)
   
   output$dataTableView <- renderTable({
-    filterFunction()
+    head(filterFunction())
   })
   
   # plot1 output generates plots for isotope enrichment-based parameters from 

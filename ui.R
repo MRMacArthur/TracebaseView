@@ -4,6 +4,7 @@ library(dplyr)
 library(tidyr)
 library(purrr)
 library(ggplot2)
+library(shinydashboard)
 
 fluidPage(titlePanel("TracebaseViews"),
           sidebarLayout(
@@ -43,7 +44,9 @@ fluidPage(titlePanel("TracebaseViews"),
             mainPanel(tabsetPanel(
               tabPanel("Data Input",
                 verbatimTextOutput("getHeader"),
+                h3("Filter Data"),
                 uiOutput("generateFilters"),
+                h3("Preview of Data"),
                 tableOutput("dataTableView")
               ),
               tabPanel("Plots",
