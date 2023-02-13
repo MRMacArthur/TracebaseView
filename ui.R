@@ -10,19 +10,23 @@ fluidPage(titlePanel("TracebaseViews"),
           sidebarLayout(
             sidebarPanel(
               width = 2,
-              fileInput(
-                "fileIn",
-                "Load Tracebase Output File",
-                multiple = F,
-                accept = c(".tsv")
-              ),
-              br(),
-              tableOutput("dataSummary"),
-              selectInput(
-                inputId = "plot1_x",
-                label = "X Axis",
-                choices = c("")
-              ),
+              conditionalPanel(
+                condition = "input.dataPanels == 'Data Input'",
+                fileInput(
+                  "fileIn",
+                  "Load Tracebase Output File",
+                  multiple = F,
+                  accept = c(".tsv")
+                ),
+                br(),
+                tableOutput("dataSummary")),
+              conditionalPanel(
+                condition = "input.dataPanels == 'Enrichment Plots'",
+                selectInput(
+                  inputId = "plot1_x",
+                  label = "X Axis",
+                  choices = c("")
+                ),
               selectInput(
                 inputId = "plot1_y",
                 label = "Y Axis",
@@ -41,15 +45,48 @@ fluidPage(titlePanel("TracebaseViews"),
               ),
               actionButton("renderPlot1", "Render Plot")
             ),
-            mainPanel(tabsetPanel(
-              tabPanel("Data Input",
-                verbatimTextOutput("getHeader"),
-                h3("Filter Data"),
-                uiOutput("generateFilters"),
-                h3("Preview of Data"),
-                tableOutput("dataTableView")
+            conditionalPanel(
+              condition = "input.dataPanels == 'Enrichment Stats'",
+              checkboxInput("enrichmentInteractionBox",
+                            "Check for interaction terms",
+                            value = F),
+              selectInput("enrichmentTransform",
+                          "Select data transformation",
+                          choices = c("None",
+                                      "Log2",
+                                      "Log10",
+                                      "SqRoot")),
+              selectInput(
+                inputId = "enrichmentDependent",
+                label = "Select dependent variable",
+                choices = c("")
               ),
-              tabPanel("Plots",
-                       uiOutput("plot1"))
+              selectInput(
+                inputId = "enrichmentIndependent",
+                label = "Select independent variable",
+                choices = c(""),
+                multiple = T
+              ),
+              actionButton("calcEnrichStats", "Calculate statistics")
+            )),
+            mainPanel(
+              tabsetPanel(
+              tabPanel(
+                "Data Input",
+                fluidRow(column(3,
+                                verbatimTextOutput("getHeader"),
+                                h3("Filter Data"),
+                                uiOutput("generateFilters")),
+                         column(9,
+                                h3("Preview of Data"),
+                                tableOutput("dataTableView")))
+              ),
+              tabPanel("Enrichment Plots",
+                       uiOutput("plot1")),
+              tabPanel("Enrichment Stats",
+                       h3("STUFF HERE")),
+              tabPanel("Fcirc Plots",
+                       h3("STUFF HERE")),
+              id = "dataPanels"
             ))
           ))

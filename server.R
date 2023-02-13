@@ -88,6 +88,39 @@ function(input, output, session) {
     
   })
   
+  
+  # This observeEvent statement parses the file input header to determine data type
+  # then hides tabPanels which are not associated with the inputted datatype
+  # The remaining displayed tabPanels are only those useful for that datatype
+  # Ex. when Fcirc dataype is input, peakGroups and peakData tabs are hidden
+  observeEvent(input$fileIn, {
+    if (grepl(
+      "pgtemplate",
+      gsub(
+        '^.*selectedtemplate\\s*|\\s*searches.*$',
+        '',
+        readLines(input$fileIn$datapath, n = 2)[2]
+      ),
+      fixed = TRUE
+    )) {
+      hideTab(inputId = "dataPanels",
+              target = "Fcirc Plots")
+    } else if (grepl(
+      "fctemplate",
+      gsub(
+        '^.*selectedtemplate\\s*|\\s*searches.*$',
+        '',
+        readLines(input$fileIn$datapath, n = 2)[2]
+      ),
+      fixed = TRUE
+    )) {
+      hideTab(inputId = "dataPanels",
+              target = "Enrichment Plots")
+      hideTab(inputId = "dataPanels",
+              target = "Enrichment Stats")
+    }
+  })
+  
   # Load data using reactive function. This reactive function returns a dataframe
   # of the input file. Functions that call getData() will receive the dataframe
   # and will only rerun fread() when the input field has been updated.
@@ -156,6 +189,33 @@ function(input, output, session) {
     head(filterFunction())
   })
   
+  # The 3 observe functions below react to user inputs which 
+  # dictate the variables to be plotted on the x axis, y axis
+  # and variable used for faceting in the plot1 (Peak Groups) output
+  
+  observe({
+    updateSelectInput(session, "plot1_x",
+                      choices = names(getData()))
+  })
+  
+  observe({
+    updateSelectInput(session, "plot1_y",
+                      choices = names(getData()))
+  })
+  
+  observe({
+    updateSelectInput(session, "plot1_facet1",
+                      choices = names(getData()))
+  })
+  
+  facetCoder <- eventReactive(input$renderPlot1, {
+     if(input$check_facet1) FALSE else TRUE 
+  })
+  
+  scaleCoder <- eventReactive(input$renderPlot1, {
+    if(input$scales_plot1) FALSE else TRUE
+  }) 
+  
   # plot1 output generates plots for isotope enrichment-based parameters from 
   # the Peak Groups output data type. Mainly intended for "Total Abundance",
   # "Enrichment Fraction", "Enrichment Abundance" or "Normalized Labeling"
@@ -180,14 +240,14 @@ function(input, output, session) {
         plotname <- paste("Plot", iCurrent, sep = "_")
         
         output[[plotname]] <- renderPlot({
-          if (input$check_facet1 == F) {
+          if (facetCoder()) {
             filterFunction() %>%
               filter(Infusate == iCurrent) %>%
               ggplot(aes_string(x = as.name(input$plot1_x), 
                                 y = as.name(input$plot1_y))) +
               geom_boxplot() + ggtitle(paste(iCurrent))
           } else{
-            if (input$scales_plot1 == F) {
+            if (scaleCoder()) {
               filterFunction() %>%
                 filter(Infusate == iCurrent) %>%
                 ggplot(aes_string(x = as.name(input$plot1_x), 
@@ -209,24 +269,68 @@ function(input, output, session) {
     }
   })
   
-  # The 3 observe functions below react to user inputs which 
-  # dictate the variables to be plotted on the x axis, y axis
-  # and variable used for faceting in the plot1 (Peak Groups) output
+  
+  # Enrichment stats
   
   observe({
-    updateSelectInput(session, "plot1_x",
+    updateSelectInput(session, "enrichmentDependent",
                       choices = names(getData()))
   })
   
   observe({
-    updateSelectInput(session, "plot1_y",
+    updateSelectInput(session, "enrichmentIndependent",
                       choices = names(getData()))
   })
   
-  observe({
-    updateSelectInput(session, "plot1_facet1",
-                      choices = names(getData()))
+  enrichInteractCoder <- eventReactive(input$calcEnrichStats, {
+    if(input$enrichmentInteractionBox) FALSE else TRUE 
   })
+  
+  # Generate model functions for enrichment statistics
+  enrichmentRegFxn <- reactive({
+    if (enrichInteractCoder) {
+      if (length(input$enrichmentIndependent) == 1) {
+        possibly(function(dat) {
+          lm(input$enrichmentDependent ~ input$enrichmentDependent,
+             data = dat) %>%
+            broom::tidy()
+        })
+      } else if(length(input$enrichmentIndependent) == 2) {
+        possibly(function(dat) {
+          lm(input$enrichmentDependent ~ input$enrichmentDependent[1] +
+               input$enrichmentDependent[2],
+             data = dat) %>%
+            broom::tidy()
+        })
+      }
+    } else {
+      if (length(input$enrichmentIndependent) == 1) {
+        possibly(function(dat) {
+          lm(input$enrichmentDependent ~ input$enrichmentDependent,
+             data = dat) %>%
+            broom::tidy()
+        })
+      } else if(length(input$enrichmentIndependent) == 2) {
+        possibly(function(dat) {
+          lm(input$enrichmentDependent ~ input$enrichmentDependent[1] *
+               input$enrichmentDependent[2],
+             data = dat) %>%
+            broom::tidy()
+        })
+      }
+    }
+  })
+  
+  # Perform stats
+  observeEvent(input$calcEnrichStats,{
+               output$enrichStatTable <- getData() %>%
+                 nest(infusateData = -Infusate) %>%
+                 mutate(df = map(infusateData, enrichmentRegFxn)) %>%
+                 unnest(df) %>%
+                 select(-infusateData)
+               })
+  
+  
   
   outputOptions(output, "getHeader", suspendWhenHidden = FALSE)
   
