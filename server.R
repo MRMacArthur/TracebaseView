@@ -4,7 +4,6 @@ library(dplyr)
 library(tidyr)
 library(purrr)
 library(ggplot2)
-library(shinydashboard)
 
 options(shiny.maxRequestSize = 60 * 1024 ^ 2)
 
@@ -45,6 +44,7 @@ numericColNames <- c(
 )
 
 function(input, output, session) {
+  
   # The getHeader reactive function parses the second header
   # line of the input file from Tracebase and extracts the
   #'selectedtemplate' value. Options are 'pgtemplate' for
@@ -93,6 +93,7 @@ function(input, output, session) {
   # then hides tabPanels which are not associated with the inputted datatype
   # The remaining displayed tabPanels are only those useful for that datatype
   # Ex. when Fcirc dataype is input, peakGroups and peakData tabs are hidden
+  
   observeEvent(input$fileIn, {
     if (grepl(
       "pgtemplate",
@@ -121,6 +122,7 @@ function(input, output, session) {
     }
   })
   
+  
   # Load data using reactive function. This reactive function returns a dataframe
   # of the input file. Functions that call getData() will receive the dataframe
   # and will only rerun fread() when the input field has been updated.
@@ -140,6 +142,8 @@ function(input, output, session) {
     return(dataIn)
   })
   
+  
+  
   # Generate selectInput (pickerInput) elements for all character variables from
   # the user data upload. These elements are used for the user to filter
   # data and exclude levels of factor variables
@@ -158,6 +162,7 @@ function(input, output, session) {
     })
   })
   
+  
   # Reactive function which executes filtering based on user selection from the
   # generateFilters elements
   
@@ -168,6 +173,7 @@ function(input, output, session) {
     .init = getData()
     )
   })
+  
   
   # dataSummary output generates a count table of the number of levels in each
   # "factor" variable (all possible defined in "summaryColNames" variable).
@@ -189,9 +195,11 @@ function(input, output, session) {
     head(filterFunction())
   })
   
+  
   # The 3 observe functions below react to user inputs which 
   # dictate the variables to be plotted on the x axis, y axis
   # and variable used for faceting in the plot1 (Peak Groups) output
+  # The two coder functions take the T/F value for faceting and scaling
   
   observe({
     updateSelectInput(session, "plot1_x",
@@ -215,6 +223,7 @@ function(input, output, session) {
   scaleCoder <- eventReactive(input$renderPlot1, {
     if(input$scales_plot1) FALSE else TRUE
   }) 
+  
   
   # plot1 output generates plots for isotope enrichment-based parameters from 
   # the Peak Groups output data type. Mainly intended for "Total Abundance",
@@ -287,48 +296,47 @@ function(input, output, session) {
   })
   
   # Generate model functions for enrichment statistics
-  enrichmentRegFxn <- reactive({
-    if (enrichInteractCoder) {
-      if (length(input$enrichmentIndependent) == 1) {
-        possibly(function(dat) {
-          lm(input$enrichmentDependent ~ input$enrichmentDependent,
-             data = dat) %>%
-            broom::tidy()
-        })
-      } else if(length(input$enrichmentIndependent) == 2) {
-        possibly(function(dat) {
-          lm(input$enrichmentDependent ~ input$enrichmentDependent[1] +
-               input$enrichmentDependent[2],
-             data = dat) %>%
-            broom::tidy()
-        })
+  
+  enrichmentFormula <- reactive({
+    if(enrichInteractCoder()){
+      if(length(input$enrichmentIndependent) == 1){
+        paste0("`", input$enrichmentDependent, "` ~ `", input$enrichmentIndependent, "`") %>%
+          as.formula()
+      } else if(length(input$enrichmentIndependent) == 2){
+        paste0("`", input$enrichmentDependent, "` ~ `", input$enrichmentIndependent[1],
+               "` + `", input$enrichmentIndependent[2], "`") %>%
+          as.formula()
       }
     } else {
-      if (length(input$enrichmentIndependent) == 1) {
-        possibly(function(dat) {
-          lm(input$enrichmentDependent ~ input$enrichmentDependent,
-             data = dat) %>%
-            broom::tidy()
-        })
-      } else if(length(input$enrichmentIndependent) == 2) {
-        possibly(function(dat) {
-          lm(input$enrichmentDependent ~ input$enrichmentDependent[1] *
-               input$enrichmentDependent[2],
-             data = dat) %>%
-            broom::tidy()
-        })
+      if(length(input$enrichmentIndependent) == 1){
+        paste0("`", input$enrichmentDependent, "` ~ `", input$enrichmentIndependent, "`") %>%
+          as.formula()
+      } else if(length(input$enrichmentIndependent) == 2){
+        paste0("`", input$enrichmentDependent, "` ~ `", input$enrichmentIndependent[1],
+               "` * `", input$enrichmentIndependent[2], "`") %>%
+          as.formula()
       }
     }
   })
   
-  # Perform stats
-  observeEvent(input$calcEnrichStats,{
-               output$enrichStatTable <- getData() %>%
-                 nest(infusateData = -Infusate) %>%
-                 mutate(df = map(infusateData, enrichmentRegFxn)) %>%
-                 unnest(df) %>%
-                 select(-infusateData)
-               })
+  enrichmentFunction <- possibly(function(dat) {
+    lm(formula = enrichmentFormula(), data = dat) %>%
+      broom::tidy()
+  }, otherwise = NULL)
+  
+  output$enrichStatTable <- DT::renderDataTable(DT::datatable({
+    req(input$calcEnrichStats)
+      getData() %>%
+        nest(statData = -Infusate) %>%
+        mutate(df = purrr::map(statData, enrichmentFunction)) %>%
+        unnest(df) %>%
+        select(-statData) %>%
+        filter(term != "(Intercept)")
+    }))
+  
+  
+  
+  
   
   
   

@@ -4,7 +4,6 @@ library(dplyr)
 library(tidyr)
 library(purrr)
 library(ggplot2)
-library(shinydashboard)
 
 fluidPage(titlePanel("TracebaseViews"),
           sidebarLayout(
@@ -68,6 +67,31 @@ fluidPage(titlePanel("TracebaseViews"),
                 multiple = T
               ),
               actionButton("calcEnrichStats", "Calculate statistics")
+            ),
+            conditionalPanel(
+              condition = "input.dataPanels == 'Fcirc Plots'",
+              selectInput(
+                inputId = "plot1_x",
+                label = "X Axis",
+                choices = c("")
+              ),
+              selectInput(
+                inputId = "plot1_y",
+                label = "Y Axis",
+                choices = c("")
+              ),
+              checkboxInput("check_facet1",
+                            "Check for 1 facet",
+                            value = F),
+              checkboxInput("scales_plot1",
+                            "Check for free scales",
+                            value = F),
+              selectInput(
+                inputId = "plot1_facet1",
+                label = "Facet",
+                choices = c("")
+              ),
+              actionButton("renderPlot1", "Render Plot")
             )),
             mainPanel(
               tabsetPanel(
@@ -84,8 +108,10 @@ fluidPage(titlePanel("TracebaseViews"),
               tabPanel("Enrichment Plots",
                        uiOutput("plot1")),
               tabPanel("Enrichment Stats",
-                       h3("STUFF HERE")),
+                       DT::dataTableOutput("enrichStatTable")),
               tabPanel("Fcirc Plots",
+                       h3("STUFF HERE")),
+              tabPanel("Fcirc Stats",
                        h3("STUFF HERE")),
               id = "dataPanels"
             ))
