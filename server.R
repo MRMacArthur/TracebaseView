@@ -21,8 +21,7 @@ summaryColNames <- c(
     "Treatment",
     "Studies",
     "Infusate",
-    "Tracer Compound",
-    "Time Collected (m)"
+    "Tracer Compound"
   )
 
 numericColNames <- c(
@@ -40,7 +39,8 @@ numericColNames <- c(
   "Intact Rd (nM/m/g)",
   "Intact Ra (nM/m)",
   "Intact Rd (nM/m)",
-  "Tracer Concentration (mM)"
+  "Tracer Concentration (mM)",
+  "Time Collected (m)"
 )
 
 function(input, output, session) {
@@ -106,6 +106,12 @@ function(input, output, session) {
     )) {
       hideTab(inputId = "dataPanels",
               target = "Fcirc Plots")
+      hideTab(inputId = "dataPanels",
+              target = "Fcirc Stats")
+      showTab(inputId = "dataPanels",
+              target = "Enrichment Plots")
+      showTab(inputId = "dataPanels",
+              target = "Enrichment Stats")
     } else if (grepl(
       "fctemplate",
       gsub(
@@ -119,6 +125,10 @@ function(input, output, session) {
               target = "Enrichment Plots")
       hideTab(inputId = "dataPanels",
               target = "Enrichment Stats")
+      showTab(inputId = "dataPanels",
+              target = "Fcirc Plots")
+      showTab(inputId = "dataPanels",
+              target = "Fcirc Stats")
     }
   })
   
@@ -196,24 +206,34 @@ function(input, output, session) {
   })
   
   
-  # The 3 observe functions below react to user inputs which 
+  # The 4 observe functions below react to user inputs which 
   # dictate the variables to be plotted on the x axis, y axis
-  # and variable used for faceting in the plot1 (Peak Groups) output
+  # and variables used for fill color and faceting in the plot1 
+  # (Peak Groups Enrichment) output
   # The two coder functions take the T/F value for faceting and scaling
   
   observe({
     updateSelectInput(session, "plot1_x",
-                      choices = names(getData()))
+                      choices = names(getData()),
+                      selected = character(0))
   })
   
   observe({
     updateSelectInput(session, "plot1_y",
-                      choices = names(getData()))
+                      choices = names(getData()),
+                      selected = character(0))
   })
   
   observe({
     updateSelectInput(session, "plot1_facet1",
-                      choices = names(getData()))
+                      choices = names(getData()),
+                      selected = character(0))
+  })
+  
+  observe({
+    updateSelectInput(session, "fillEnrichPlot",
+                      choices = names(getData()),
+                      selected = character(0))
   })
   
   facetCoder <- eventReactive(input$renderPlot1, {
@@ -249,30 +269,73 @@ function(input, output, session) {
         plotname <- paste("Plot", iCurrent, sep = "_")
         
         output[[plotname]] <- renderPlot({
-          if (facetCoder()) {
-            filterFunction() %>%
-              filter(Infusate == iCurrent) %>%
-              ggplot(aes_string(x = as.name(input$plot1_x), 
-                                y = as.name(input$plot1_y))) +
-              geom_boxplot() + ggtitle(paste(iCurrent))
-          } else{
-            if (scaleCoder()) {
+          if (input$fillEnrichPlot == "") {
+            if (facetCoder()) {
               filterFunction() %>%
                 filter(Infusate == iCurrent) %>%
-                ggplot(aes_string(x = as.name(input$plot1_x), 
-                                  y = as.name(input$plot1_y))) +
-                geom_boxplot() + ggtitle(paste(iCurrent)) +
-                facet_wrap(input$plot1_facet1)
+                ggplot(aes_string(
+                  x = as.name(input$plot1_x),
+                  y = as.name(input$plot1_y)
+                )) +
+                geom_boxplot() + ggtitle(paste(iCurrent))
             } else{
+              if (scaleCoder()) {
+                filterFunction() %>%
+                  filter(Infusate == iCurrent) %>%
+                  ggplot(aes_string(
+                    x = as.name(input$plot1_x),
+                    y = as.name(input$plot1_y)
+                  )) +
+                  geom_boxplot() + ggtitle(paste(iCurrent)) +
+                  facet_wrap(paste("~`", input$plot1_facet1, "`", sep = ""))
+              } else{
+                filterFunction() %>%
+                  filter(Infusate == iCurrent) %>%
+                  ggplot(aes_string(
+                    x = as.name(input$plot1_x),
+                    y = as.name(input$plot1_y)
+                  )) +
+                  geom_boxplot() + ggtitle(paste(iCurrent)) +
+                  facet_wrap(paste("~`", input$plot1_facet1, "`", sep = ""),
+                             scale = "free")
+              }
+            }
+          } else{
+            if (facetCoder()) {
               filterFunction() %>%
                 filter(Infusate == iCurrent) %>%
-                ggplot(aes_string(x = as.name(input$plot1_x), 
-                                  y = as.name(input$plot1_y))) +
-                geom_boxplot() + ggtitle(paste(iCurrent)) +
-                facet_wrap(input$plot1_facet1, scale = "free")
+                ggplot(aes_string(
+                  x = as.name(input$plot1_x),
+                  y = as.name(input$plot1_y),
+                  fill = as.name(input$fillEnrichPlot)
+                )) +
+                geom_boxplot() + ggtitle(paste(iCurrent))
+            } else{
+              if (scaleCoder()) {
+                filterFunction() %>%
+                  filter(Infusate == iCurrent) %>%
+                  ggplot(aes_string(
+                    x = as.name(input$plot1_x),
+                    y = as.name(input$plot1_y),
+                    fill = as.name(input$fillEnrichPlot)
+                  )) +
+                  geom_boxplot() + ggtitle(paste(iCurrent)) +
+                  facet_wrap(paste("~`", input$plot1_facet1, "`", sep = ""))
+              } else{
+                filterFunction() %>%
+                  filter(Infusate == iCurrent) %>%
+                  ggplot(aes_string(
+                    x = as.name(input$plot1_x),
+                    y = as.name(input$plot1_y),
+                    fill = as.name(input$fillEnrichPlot)
+                  )) +
+                  geom_boxplot() + ggtitle(paste(iCurrent)) +
+                  facet_wrap(paste("~`", input$plot1_facet1, "`", sep = ""),
+                             scale = "free")
+              }
             }
           }
-          
+
         })
       })
     }
@@ -326,7 +389,7 @@ function(input, output, session) {
   
   output$enrichStatTable <- DT::renderDataTable(DT::datatable({
     req(input$calcEnrichStats)
-      getData() %>%
+      filterFunction() %>%
         nest(statData = -Infusate) %>%
         mutate(df = purrr::map(statData, enrichmentFunction)) %>%
         unnest(df) %>%
@@ -335,7 +398,142 @@ function(input, output, session) {
     }))
   
   
+  # The 4 observe functions below react to user inputs which 
+  # dictate the variables to be plotted on the x axis, y axis
+  # and variables used for fill color and faceting in the 
+  # Fcirc_plot1 (Fcirc main plot) output
+  # The two coder functions take the T/F value for faceting and scaling
   
+  observe({
+    updateSelectInput(session, "plotFcirc1_x",
+                      choices = names(getData()),
+                      selected = character(0))
+  })
+  
+  observe({
+    updateSelectInput(session, "plotFcirc1_y",
+                      choices = names(getData()),
+                      selected = character(0))
+  })
+  
+  observe({
+    updateSelectInput(session, "Fcirc_facet1",
+                      choices = names(getData()),
+                      selected = character(0))
+  })
+  
+  observe({
+    updateSelectInput(session, "fillFcircPlot",
+                      choices = names(getData()),
+                      selected = character(0))
+  })
+  
+  facetCoderFcirc <- eventReactive(input$renderPlotFcirc1, {
+    if(input$facetCheck_Fcirc1) FALSE else TRUE 
+  })
+  
+  scaleCoderFcirc <- eventReactive(input$renderPlotFcirc1, {
+    if(input$scalesCheck_Fcirc1) FALSE else TRUE
+  }) 
+  
+  
+  # plot1 output generates plots for isotope enrichment-based parameters from 
+  # the Peak Groups output data type. Mainly intended for "Total Abundance",
+  # "Enrichment Fraction", "Enrichment Abundance" or "Normalized Labeling"
+  # values. The user dictates the x and y axis parameters via dropdown
+  # user inputs. User can also optionally provide a faceting parameter
+  # and allow for free y axis scales between facets via checkbox inputs.
+  # One plot per infusate is automatically generated.
+  
+  output$Fcirc_plot1 <- renderUI({
+    plotOutputListFcirc <- lapply(make.names(unique(filterFunction()$`Labeled Element`)),
+                             function(i){
+                               plotname <- paste("Plot", i, sep = "_")
+                               plotOutput(plotname, height = 600)
+                             })
+    do.call(tagList, plotOutputListFcirc)
+  })
+  
+  observeEvent(input$renderPlotFcirc1, {
+    for (i in make.names(unique(filterFunction()$`Labeled Element`))) {
+      local({
+        iCurrent <- i
+        plotname <- paste("Plot", iCurrent, sep = "_")
+        
+        output[[plotname]] <- renderPlot({
+          if (input$fillFcircPlot == "") {
+            if (facetCoderFcirc()) {
+              filterFunction() %>%
+                filter(`Labeled Element` == iCurrent) %>%
+                ggplot(aes_string(
+                  x = as.name(input$plotFcirc1_x),
+                  y = as.name(input$plotFcirc1_y)
+                )) +
+                geom_boxplot() + ggtitle(paste(iCurrent))
+            } else{
+              if (scaleCoderFcirc()) {
+                filterFunction() %>%
+                  filter(`Labeled Element` == iCurrent) %>%
+                  ggplot(aes_string(
+                    x = as.name(input$plotFcirc1_x),
+                    y = as.name(input$plotFcirc1_y)
+                  )) +
+                  geom_boxplot() + ggtitle(paste(iCurrent)) +
+                  facet_wrap(paste("~`", input$Fcirc_facet1, "`", sep = ""))
+              } else{
+                filterFunction() %>%
+                  filter(`Labeled Element` == iCurrent) %>%
+                  ggplot(aes_string(
+                    x = as.name(input$plotFcirc1_x),
+                    y = as.name(input$plotFcirc1_y)
+                  )) +
+                  geom_boxplot() + ggtitle(paste(iCurrent)) +
+                  facet_wrap(paste("~`", input$Fcirc_facet1, "`", sep = ""),
+                             scale = "free")
+              }
+            }
+          } else{
+            if (facetCoderFcirc()) {
+              filterFunction() %>%
+                filter(`Labeled Element` == iCurrent) %>%
+                ggplot(aes_string(
+                  x = as.name(input$plotFcirc1_x),
+                  y = as.name(input$plotFcirc1_y),
+                  fill = as.name(input$fillFcircPlot)
+                )) +
+                geom_boxplot() + ggtitle(paste(iCurrent))
+            } else{
+              if (scaleCoderFcirc()) {
+                filterFunction() %>%
+                  filter(`Labeled Element` == iCurrent) %>%
+                  ggplot(aes_string(
+                    x = as.name(input$plotFcirc1_x),
+                    y = as.name(input$plotFcirc1_y),
+                    fill = as.name(input$fillFcircPlot)
+                  )) +
+                  geom_boxplot() + ggtitle(paste(iCurrent)) +
+                  facet_wrap(paste("~`", input$Fcirc_facet1, "`", sep = ""))
+              } else{
+                filterFunction() %>%
+                  filter(`Labeled Element` == iCurrent) %>%
+                  ggplot(aes_string(
+                    x = as.name(input$plotFcirc1_x),
+                    y = as.name(input$plotFcirc1_y),
+                    fill = as.name(input$fillFcircPlot)
+                  )) +
+                  geom_boxplot() + ggtitle(paste(iCurrent)) +
+                  facet_wrap(paste("~`", input$Fcirc_facet1, "`", sep = ""),
+                             scale = "free")
+              }
+            }
+          }
+          
+          
+          
+        })
+      })
+    }
+  })
   
   
   

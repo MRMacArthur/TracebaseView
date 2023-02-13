@@ -21,6 +21,7 @@ fluidPage(titlePanel("TracebaseViews"),
                 tableOutput("dataSummary")),
               conditionalPanel(
                 condition = "input.dataPanels == 'Enrichment Plots'",
+                h4("Required parameters"),
                 selectInput(
                   inputId = "plot1_x",
                   label = "X Axis",
@@ -29,6 +30,12 @@ fluidPage(titlePanel("TracebaseViews"),
               selectInput(
                 inputId = "plot1_y",
                 label = "Y Axis",
+                choices = c("")
+              ),
+              h4("Optional parameters"),
+              selectInput(
+                inputId = "fillEnrichPlot",
+                label = "Fill color",
                 choices = c("")
               ),
               checkboxInput("check_facet1",
@@ -70,28 +77,35 @@ fluidPage(titlePanel("TracebaseViews"),
             ),
             conditionalPanel(
               condition = "input.dataPanels == 'Fcirc Plots'",
+              h4("Required parameters"),
               selectInput(
-                inputId = "plot1_x",
+                inputId = "plotFcirc1_x",
                 label = "X Axis",
                 choices = c("")
               ),
               selectInput(
-                inputId = "plot1_y",
+                inputId = "plotFcirc1_y",
                 label = "Y Axis",
                 choices = c("")
               ),
-              checkboxInput("check_facet1",
+              h4("Optional parameters"),
+              selectInput(
+                inputId = "fillFcircPlot",
+                label = "Fill color",
+                choices = c("")
+              ),
+              checkboxInput("facetCheck_Fcirc1",
                             "Check for 1 facet",
                             value = F),
-              checkboxInput("scales_plot1",
+              checkboxInput("scalesCheck_Fcirc1",
                             "Check for free scales",
                             value = F),
               selectInput(
-                inputId = "plot1_facet1",
+                inputId = "Fcirc_facet1",
                 label = "Facet",
                 choices = c("")
               ),
-              actionButton("renderPlot1", "Render Plot")
+              actionButton("renderPlotFcirc1", "Render Plot")
             )),
             mainPanel(
               tabsetPanel(
@@ -110,7 +124,7 @@ fluidPage(titlePanel("TracebaseViews"),
               tabPanel("Enrichment Stats",
                        DT::dataTableOutput("enrichStatTable")),
               tabPanel("Fcirc Plots",
-                       h3("STUFF HERE")),
+                       uiOutput("Fcirc_plot1")),
               tabPanel("Fcirc Stats",
                        h3("STUFF HERE")),
               id = "dataPanels"
