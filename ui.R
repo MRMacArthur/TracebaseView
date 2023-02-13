@@ -4,6 +4,7 @@ library(dplyr)
 library(tidyr)
 library(purrr)
 library(ggplot2)
+library(plotly)
 
 fluidPage(titlePanel("TracebaseViews"),
           sidebarLayout(
@@ -144,7 +145,26 @@ fluidPage(titlePanel("TracebaseViews"),
                 choices = c("")
               ),
               actionButton("calcFcircStats", "Calculate statistics")
-            ),),
+            ),
+            conditionalPanel(
+              condition = "input.dataPanels == 'Pool Sizes'",
+              selectInput("poolSizeTissue",
+                          "Select tissue",
+                          choices = c("")),
+              selectInput(
+                inputId = "poolSizeNumVar",
+                label = "Select analysis variable",
+                choices = c("Total Abundance",
+                            "Enrichment Abundance"),
+                selected = "Total Abundance"
+              ),
+              selectInput(
+                inputId = "poolSizeGroupVar",
+                label = "Select grouping variable",
+                choices = c("")
+              ),
+              actionButton("calcPoolSize", "Calculate pool size")
+            )),
             mainPanel(
               tabsetPanel(
               tabPanel(
@@ -161,6 +181,10 @@ fluidPage(titlePanel("TracebaseViews"),
                        uiOutput("plot1")),
               tabPanel("Enrichment Stats",
                        DT::dataTableOutput("enrichStatTable")),
+              tabPanel("Pool Sizes",
+                       DT::dataTableOutput("poolSizeStatTable"),
+                       plotlyOutput("poolSizeVolcano", height = 500),
+                       plotOutput("poolSizeBarplot", height = 500)),
               tabPanel("Fcirc Plots",
                        uiOutput("Fcirc_plot1")),
               tabPanel("Fcirc Stats",

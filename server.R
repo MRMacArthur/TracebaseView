@@ -4,6 +4,7 @@ library(dplyr)
 library(tidyr)
 library(purrr)
 library(ggplot2)
+library(plotly)
 
 options(shiny.maxRequestSize = 60 * 1024 ^ 2)
 
@@ -112,6 +113,8 @@ function(input, output, session) {
               target = "Enrichment Plots")
       showTab(inputId = "dataPanels",
               target = "Enrichment Stats")
+      showTab(inputId = "dataPanels",
+              target = "Pool Sizes")
     } else if (grepl(
       "fctemplate",
       gsub(
@@ -125,6 +128,8 @@ function(input, output, session) {
               target = "Enrichment Plots")
       hideTab(inputId = "dataPanels",
               target = "Enrichment Stats")
+      hideTab(inputId = "dataPanels",
+              target = "Pool Sizes")
       showTab(inputId = "dataPanels",
               target = "Fcirc Plots")
       showTab(inputId = "dataPanels",
@@ -407,7 +412,7 @@ function(input, output, session) {
         filter(term != "(Intercept)")
     } else{
       filterFunction() %>%
-        nest(statData = c(-Infusate, input$enrichNest)) %>%
+        nest(statData = -c(Infusate, input$enrichNest)) %>%
         mutate(df = purrr::map(statData, enrichmentFunction)) %>%
         unnest(df) %>%
         select(-statData) %>%
@@ -415,8 +420,91 @@ function(input, output, session) {
     }
   }))
   
+  # Pool sizes
+  observe({
+    updateSelectInput(session, "poolSizeTissue",
+                      choices = unique(filterFunction()$Tissue))
+  })
   
-  # The 4 observe functions below react to user inputs which 
+  observe({
+    updateSelectInput(session, "poolSizeGroupVar",
+                      choices = names(getData()))
+  })
+  
+  poolSizeFormula <- reactive({
+    paste0("log2(`", input$poolSizeNumVar, "`) ~ `", input$poolSizeGroupVar, "`") %>%
+      as.formula()
+  })
+  
+  poolSizeFunction <- possibly(function(dat) {
+    lm(formula = poolSizeFormula(), data = dat) %>%
+      broom::tidy()
+  }, otherwise = NULL)
+  
+  poolSizeStats <- reactive({
+    req(input$calcPoolSize)
+    filterFunction() %>%
+      filter(Tissue == input$poolSizeTissue) %>%
+      nest(statData = -`Measured Compound(s)`) %>%
+      mutate(df = purrr::map(statData, poolSizeFunction)) %>%
+      unnest(df) %>%
+      select(-statData) %>%
+      filter(term != "(Intercept)")
+  })
+  
+  output$poolSizeStatTable <- DT::renderDataTable(DT::datatable({
+    req(input$calcPoolSize)
+    poolSizeStats()
+  }))
+  
+  output$poolSizeVolcano <- renderPlotly({
+    req(input$calcPoolSize)
+    p <- ggplot(data = poolSizeStats(),
+                aes(x = estimate,
+                    y = -log10(p.value),
+                    text = paste("Metabolite:", `Measured Compound(s)`),
+                    key = `Measured Compound(s)`,
+                    color = p.value < 0.05)) +
+      geom_hline(yintercept = 1.3, linetype = "dashed") +
+      geom_point() +
+      labs(x = "Estimate (log2 fold change)",
+           y = "-log10 p-value",
+           color = "Sig")
+    
+    p <- ggplotly(p, source = "poolVolcano")
+    print(p)
+  })
+  
+  
+  output$poolSizeBarplot <- renderPlot({
+    req(input$calcPoolSize)
+    event.data <- event_data("plotly_click",
+                             source = "poolVolcano")
+    
+    if (is.null(event.data)) {
+      p <- filterFunction() %>%
+        filter(`Measured Compound(s)` == "lysine") %>%
+        ggplot(aes_string(
+          x = "Tissue",
+          y = "`Total Abundance`",
+          fill = paste("`", input$poolSizeGroupVar, "`", sep = "")
+        )) +
+        geom_boxplot()
+      print(p)
+    } else{
+      p <- filterFunction() %>%
+        filter(`Measured Compound(s)` == event.data$key) %>%
+        ggplot(aes_string(
+          x = "Tissue",
+          y = "`Total Abundance`",
+          fill = paste("`", input$poolSizeGroupVar, "`", sep = "")
+        )) +
+        geom_boxplot()
+      print(p)
+    }
+  })
+  
+  # The 4 observe functions below react to user inputs which
   # dictate the variables to be plotted on the x axis, y axis
   # and variables used for fill color and faceting in the 
   # Fcirc_plot1 (Fcirc main plot) output
