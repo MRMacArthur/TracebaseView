@@ -73,6 +73,14 @@ fluidPage(titlePanel("TracebaseViews"),
                 choices = c(""),
                 multiple = T
               ),
+              checkboxInput("enrichNestBox",
+                            "Check for nested models",
+                            value = F),
+              selectInput(
+                inputId = "enrichNest",
+                label = "Select nesting variable",
+                choices = c("")
+              ),
               actionButton("calcEnrichStats", "Calculate statistics")
             ),
             conditionalPanel(
@@ -106,7 +114,37 @@ fluidPage(titlePanel("TracebaseViews"),
                 choices = c("")
               ),
               actionButton("renderPlotFcirc1", "Render Plot")
-            )),
+            ),
+            conditionalPanel(
+              condition = "input.dataPanels == 'Fcirc Stats'",
+              checkboxInput("fcircInteractionBox",
+                            "Check for interaction terms",
+                            value = F),
+              selectInput("fcircTransform",
+                          "Select data transformation",
+                          choices = c("None",
+                                      "Log10")),
+              selectInput(
+                inputId = "fcircDependent",
+                label = "Select dependent variable",
+                choices = c("")
+              ),
+              selectInput(
+                inputId = "fcircIndependent",
+                label = "Select independent variable",
+                choices = c(""),
+                multiple = T
+              ),
+              checkboxInput("fcircNestBox",
+                            "Check for nested models",
+                            value = F),
+              selectInput(
+                inputId = "fcircNest",
+                label = "Select nesting variable",
+                choices = c("")
+              ),
+              actionButton("calcFcircStats", "Calculate statistics")
+            ),),
             mainPanel(
               tabsetPanel(
               tabPanel(
@@ -126,7 +164,7 @@ fluidPage(titlePanel("TracebaseViews"),
               tabPanel("Fcirc Plots",
                        uiOutput("Fcirc_plot1")),
               tabPanel("Fcirc Stats",
-                       h3("STUFF HERE")),
+                       DT::dataTableOutput("fcircStatTable")),
               id = "dataPanels"
             ))
           ))

@@ -354,8 +354,17 @@ function(input, output, session) {
                       choices = names(getData()))
   })
   
+  observe({
+    updateSelectInput(session, "enrichNest",
+                      choices = names(getData()))
+  })
+  
   enrichInteractCoder <- eventReactive(input$calcEnrichStats, {
     if(input$enrichmentInteractionBox) FALSE else TRUE 
+  })
+  
+  enrichNestCoder <- eventReactive(input$calcEnrichStats, {
+    if(input$enrichNestBox) FALSE else TRUE 
   })
   
   # Generate model functions for enrichment statistics
@@ -389,13 +398,22 @@ function(input, output, session) {
   
   output$enrichStatTable <- DT::renderDataTable(DT::datatable({
     req(input$calcEnrichStats)
+    if (enrichNestCoder()) {
       filterFunction() %>%
         nest(statData = -Infusate) %>%
         mutate(df = purrr::map(statData, enrichmentFunction)) %>%
         unnest(df) %>%
         select(-statData) %>%
         filter(term != "(Intercept)")
-    }))
+    } else{
+      filterFunction() %>%
+        nest(statData = c(-Infusate, input$enrichNest)) %>%
+        mutate(df = purrr::map(statData, enrichmentFunction)) %>%
+        unnest(df) %>%
+        select(-statData) %>%
+        filter(term != "(Intercept)")
+    }
+  }))
   
   
   # The 4 observe functions below react to user inputs which 
@@ -535,7 +553,78 @@ function(input, output, session) {
     }
   })
   
+  # Fcirc stats
   
+  observe({
+    updateSelectInput(session, "fcircDependent",
+                      choices = names(getData()))
+  })
+  
+  observe({
+    updateSelectInput(session, "fcircIndependent",
+                      choices = names(getData()))
+  })
+  
+  observe({
+    updateSelectInput(session, "fcircNest",
+                      choices = names(getData()))
+  })
+  
+  fcircInteractCoder <- eventReactive(input$calcFcircStats, {
+    if(input$fcircInteractionBox) FALSE else TRUE 
+  })
+  
+  fcircNestCoder <- eventReactive(input$calcFcircStats, {
+    if(input$fcircNestBox) FALSE else TRUE 
+  })
+  
+  # Generate model functions for Fcirc statistics
+  
+  fcircFormula <- reactive({
+    if(fcircInteractCoder()){
+      if(length(input$fcircIndependent) == 1){
+        paste0("`", input$fcircDependent, "` ~ `", input$fcircIndependent, "`") %>%
+          as.formula()
+      } else if(length(input$fcircIndependent) == 2){
+        paste0("`", input$fcircDependent, "` ~ `", input$fcircIndependent[1],
+               "` + `", input$fcircIndependent[2], "`") %>%
+          as.formula()
+      }
+    } else {
+      if(length(input$fcircIndependent) == 1){
+        paste0("`", input$fcircDependent, "` ~ `", input$fcircIndependent, "`") %>%
+          as.formula()
+      } else if(length(input$fcircIndependent) == 2){
+        paste0("`", input$fcircDependent, "` ~ `", input$fcircIndependent[1],
+               "` * `", input$fcircIndependent[2], "`") %>%
+          as.formula()
+      }
+    }
+  })
+  
+  fcircFunction <- possibly(function(dat) {
+    lm(formula = fcircFormula(), data = dat) %>%
+      broom::tidy()
+  }, otherwise = NULL)
+  
+  output$fcircStatTable <- DT::renderDataTable(DT::datatable({
+    req(input$calcFcircStats)
+    if (fcircNestCoder()) {
+      filterFunction() %>%
+        nest(statData = -`Labeled Element`) %>%
+        mutate(df = purrr::map(statData, fcircFunction)) %>%
+        unnest(df) %>%
+        select(-statData) %>%
+        filter(term != "(Intercept)")
+    } else{
+      filterFunction() %>%
+        nest(statData = -c(`Labeled Element`, input$fcircNest)) %>%
+        mutate(df = purrr::map(statData, fcircFunction)) %>%
+        unnest(df) %>%
+        select(-statData) %>%
+        filter(term != "(Intercept)")
+    }
+  }))
   
   
   outputOptions(output, "getHeader", suspendWhenHidden = FALSE)
